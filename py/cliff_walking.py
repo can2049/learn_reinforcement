@@ -12,6 +12,8 @@ class CliffWalkingEnv:
         self.start_state = (0, 0)
         self.goal_state = (0, 11)
         self.cliff_row = 1
+        self.cliff_col_start = 1  # 悬崖起始列（包含）
+        self.cliff_col_end = 11  # 悬崖结束列（不包含）
         self.current_state = None
 
     def reset(self):
@@ -30,7 +32,7 @@ class CliffWalkingEnv:
             c = min(c + 1, self.cols - 1)
 
         next_state = (r, c)
-        if r == self.cliff_row:
+        if r == self.cliff_row and self.cliff_col_start <= c < self.cliff_col_end:
             reward = -100
             done = False
             next_state = self.start_state
@@ -108,9 +110,9 @@ def run_experiment(algo, env, alpha, gamma, epsilon, runs=10, episodes=500):
 def parameter_sweep():
     # 参数选择（可自行调整）
     alphas = [0.1, 0.5]
-    gammas = [1.0]           # 也可以加入更多 gamma，但注意子图数量
-    epsilons = [0.1, 0.2, 0.5]
-    episodes = 300
+    gammas = [1.0]  # 也可以加入更多 gamma，但注意子图数量
+    epsilons = [0.1, 0.5]
+    episodes = 500
     runs = 10
 
     # 生成所有参数组合
@@ -118,7 +120,7 @@ def parameter_sweep():
     n_combos = len(param_combos)
 
     # 计算子图网格的行列数
-    cols = min(3, n_combos)
+    cols = min(2, n_combos)
     rows = (n_combos + cols - 1) // cols
 
     fig, axes = plt.subplots(rows, cols, figsize=(5*cols, 4*rows))
@@ -138,8 +140,8 @@ def parameter_sweep():
         q_curve = run_experiment(q_learning, env, alpha, gamma, eps, runs, episodes)
 
         ax = axes_flat[idx]
-        ax.plot(s_curve, label='Sarsa', color='blue')
-        ax.plot(q_curve, label='Q-learning', color='red')
+        ax.plot(s_curve, label="Sarsa", color="blue", alpha=0.8, linewidth=1.5)
+        ax.plot(q_curve, label="Q-learning", color="red", alpha=0.8, linewidth=1.5)
         ax.set_title(f'α={alpha}, γ={gamma}, ε={eps}')
         ax.set_xlabel('Episode')
         ax.set_ylabel('Total Reward')
