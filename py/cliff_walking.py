@@ -148,6 +148,9 @@ def parameter_sweep():
         ax.legend()
         ax.grid(True)
 
+        # 设置y轴最小值为-500
+        ax.set_ylim(-1000, 0)
+
     # 隐藏多余的子图
     for idx in range(n_combos, len(axes_flat)):
         axes_flat[idx].axis('off')
