@@ -1,163 +1,124 @@
+#!/usr/bin/env python3
+
+# %%
+
+
 import numpy as np
 import matplotlib.pyplot as plt
-from itertools import product
-from tqdm import tqdm
 
-# ==================== Cliff Walking 环境 ====================
-class CliffWalkingEnv:
-    """同前，略（保持原样）"""
-    def __init__(self):
-        self.rows = 4
-        self.cols = 12
-        self.start_state = (0, 0)
-        self.goal_state = (0, 11)
-        self.cliff_row = 1
-        self.cliff_col_start = 1  # 悬崖起始列（包含）
-        self.cliff_col_end = 11  # 悬崖结束列（不包含）
-        self.current_state = None
+# 环境设置：4x12 的网格
+WORLD_HEIGHT = 4
+WORLD_WIDTH = 12
 
-    def reset(self):
-        self.current_state = self.start_state
-        return self.current_state
+# 动作定义
+UP = 0
+DOWN = 1
+LEFT = 2
+RIGHT = 3
+ACTIONS = [UP, DOWN, LEFT, RIGHT]
 
-    def step(self, action):
-        r, c = self.current_state
-        if action == 0:   # 上
-            r = max(r - 1, 0)
-        elif action == 1: # 下
-            r = min(r + 1, self.rows - 1)
-        elif action == 2: # 左
-            c = max(c - 1, 0)
-        elif action == 3: # 右
-            c = min(c + 1, self.cols - 1)
+# 起点和终点
+START = [3, 0]
+GOAL = [3, 11]
 
-        next_state = (r, c)
-        if r == self.cliff_row and self.cliff_col_start <= c < self.cliff_col_end:
-            reward = -100
-            done = False
-            next_state = self.start_state
-        elif next_state == self.goal_state:
-            reward = 0
-            done = True
-        else:
-            reward = -1
-            done = False
+# 强化学习参数
+EPSILON = 0.1    # 探索率
+ALPHA = 0.1      # 学习率
+GAMMA = 0.95      # 折现因子（由于是有限步任务，设为1）
 
-        self.current_state = next_state
-        return next_state, reward, done
+def step(state, action):
+    """
+    环境交互函数
+    返回：(新状态, 奖励)
+    """
+    i, j = state
+    if action == UP:
+        next_state = [max(i - 1, 0), j]
+    elif action == DOWN:
+        next_state = [min(i + 1, WORLD_HEIGHT - 1), j]
+    elif action == LEFT:
+        next_state = [i, max(j - 1, 0)]
+    elif action == RIGHT:
+        next_state = [i, min(j + 1, WORLD_WIDTH - 1)]
+    
+    # 默认步数奖励
+    reward = -1
+    
+    # 悬崖区域判定：最后一行除起点和终点外的区域
+    if (next_state[0] == 3) and (1 <= next_state[1] <= 10):
+        reward = -100
+        next_state = START  # 掉下悬崖，回到起点
+        
+    return next_state, reward
 
-# ==================== ε-贪婪策略 ====================
-def epsilon_greedy(Q, state, epsilon):
-    if np.random.random() < epsilon:
-        return np.random.randint(4)
+def choose_action(state, q_table):
+    """
+    Epsilon-greedy 策略选择动作
+    """
+    if np.random.binomial(1, EPSILON) == 1:
+        return np.random.choice(ACTIONS)
     else:
-        return np.argmax(Q[state[0], state[1], :])
+        values = q_table[state[0], state[1], :]
+        # 如果有多个最大值，随机选一个
+        return np.random.choice([action for action, value in enumerate(values) if value == np.max(values)])
 
-# ==================== Sarsa ====================
-def sarsa(env, alpha, gamma, epsilon, episodes=500):
-    Q = np.zeros((env.rows, env.cols, 4))
-    rewards = []
-    for _ in range(episodes):
-        state = env.reset()
-        action = epsilon_greedy(Q, state, epsilon)
-        total_reward = 0
-        done = False
-        while not done:
-            next_state, reward, done = env.step(action)
-            if done:
-                Q[state[0], state[1], action] += alpha * (reward - Q[state[0], state[1], action])
-                total_reward += reward
-                break
-            next_action = epsilon_greedy(Q, next_state, epsilon)
-            td_target = reward + gamma * Q[next_state[0], next_state[1], next_action]
-            Q[state[0], state[1], action] += alpha * (td_target - Q[state[0], state[1], action])
-            state, action = next_state, next_action
-            total_reward += reward
-        rewards.append(total_reward)
-    return rewards
+def sarsa(q_table):
+    """
+    Sarsa 算法实现：On-policy
+    """
+    state = START
+    action = choose_action(state, q_table)
+    total_reward = 0
+    while state != GOAL:
+        next_state, reward = step(state, action)
+        next_action = choose_action(next_state, q_table)
+        total_reward += reward
+        # Sarsa 核心更新公式：使用下一步实际执行的动作 next_action
+        target = reward + GAMMA * q_table[next_state[0], next_state[1], next_action]
+        q_table[state[0], state[1], action] += ALPHA * (target - q_table[state[0], state[1], action])
+        state = next_state
+        action = next_action
+    return total_reward
 
-# ==================== Q-learning ====================
-def q_learning(env, alpha, gamma, epsilon, episodes=500):
-    Q = np.zeros((env.rows, env.cols, 4))
-    rewards = []
-    for _ in range(episodes):
-        state = env.reset()
-        total_reward = 0
-        done = False
-        while not done:
-            action = epsilon_greedy(Q, state, epsilon)
-            next_state, reward, done = env.step(action)
-            if done:
-                Q[state[0], state[1], action] += alpha * (reward - Q[state[0], state[1], action])
-                total_reward += reward
-                break
-            td_target = reward + gamma * np.max(Q[next_state[0], next_state[1], :])
-            Q[state[0], state[1], action] += alpha * (td_target - Q[state[0], state[1], action])
-            state = next_state
-            total_reward += reward
-        rewards.append(total_reward)
-    return rewards
+def q_learning(q_table):
+    """
+    Q-learning 算法实现：Off-policy
+    """
+    state = START
+    total_reward = 0
+    while state != GOAL:
+        action = choose_action(state, q_table)
+        next_state, reward = step(state, action)
+        total_reward += reward
+        # Q-learning 核心更新公式：使用下一步 Q 值中最大的那个，不考虑实际动作
+        best_next_q = np.max(q_table[next_state[0], next_state[1], :])
+        target = reward + GAMMA * best_next_q
+        q_table[state[0], state[1], action] += ALPHA * (target - q_table[state[0], state[1], action])
+        state = next_state
+    return total_reward
 
-# ==================== 多次运行取平均 ====================
-def run_experiment(algo, env, alpha, gamma, epsilon, runs=10, episodes=500):
-    all_rewards = np.zeros((runs, episodes))
-    for r in range(runs):
-        rewards = algo(env, alpha, gamma, epsilon, episodes)
-        all_rewards[r, :] = rewards
-    return np.mean(all_rewards, axis=0)
+# ----------------- 运行与对比 -----------------
 
-# ==================== 参数扫描与绘图（每组参数一张子图，包含Sarsa和Q-learning）====================
-def parameter_sweep():
-    # 参数选择（可自行调整）
-    alphas = [0.1, 0.5]
-    gammas = [1.0]  # 也可以加入更多 gamma，但注意子图数量
-    epsilons = [0.1, 0.5]
-    episodes = 500
-    runs = 10
+def run_experiment(episodes=500):
+    q_sarsa = np.zeros((WORLD_HEIGHT, WORLD_WIDTH, 4))
+    q_q_learning = np.zeros((WORLD_HEIGHT, WORLD_WIDTH, 4))
+    
+    rewards_sarsa = []
+    rewards_q_learning = []
 
-    # 生成所有参数组合
-    param_combos = list(product(alphas, gammas, epsilons))
-    n_combos = len(param_combos)
+    for i in range(episodes):
+        rewards_sarsa.append(sarsa(q_sarsa))
+        rewards_q_learning.append(q_learning(q_q_learning))
 
-    # 计算子图网格的行列数
-    cols = min(2, n_combos)
-    rows = (n_combos + cols - 1) // cols
-
-    fig, axes = plt.subplots(rows, cols, figsize=(5*cols, 4*rows))
-    if rows == 1 and cols == 1:
-        axes = np.array([[axes]])
-    elif rows == 1:
-        axes = axes.reshape(1, -1)
-    elif cols == 1:
-        axes = axes.reshape(-1, 1)
-    axes_flat = axes.flatten()
-
-    env = CliffWalkingEnv()
-
-    for idx, (alpha, gamma, eps) in enumerate(param_combos):
-        print(f"Running α={alpha}, γ={gamma}, ε={eps}")
-        s_curve = run_experiment(sarsa, env, alpha, gamma, eps, runs, episodes)
-        q_curve = run_experiment(q_learning, env, alpha, gamma, eps, runs, episodes)
-
-        ax = axes_flat[idx]
-        ax.plot(s_curve, label="Sarsa", color="blue", alpha=0.8, linewidth=1.5)
-        ax.plot(q_curve, label="Q-learning", color="red", alpha=0.8, linewidth=1.5)
-        ax.set_title(f'α={alpha}, γ={gamma}, ε={eps}')
-        ax.set_xlabel('Episode')
-        ax.set_ylabel('Total Reward')
-        ax.legend()
-        ax.grid(True)
-
-        # 设置y轴最小值为-500
-        ax.set_ylim(-1000, 0)
-
-    # 隐藏多余的子图
-    for idx in range(n_combos, len(axes_flat)):
-        axes_flat[idx].axis('off')
-
-    plt.tight_layout()
-    plt.savefig('cliff_walking_comparison_per_param.png', dpi=150)
+    # 绘制平滑后的奖励曲线
+    plt.plot(rewards_sarsa, label='Sarsa')
+    plt.plot(rewards_q_learning, label='Q-Learning')
+    plt.xlabel('Episodes')
+    plt.ylabel('Sum of rewards during episode')
+    plt.ylim([-200, 0])
+    plt.title('Sarsa vs Q-Learning on Cliff Walking')
+    plt.legend()
     plt.show()
 
-if __name__ == '__main__':
-    parameter_sweep()
+if __name__ == "__main__":
+    run_experiment()
