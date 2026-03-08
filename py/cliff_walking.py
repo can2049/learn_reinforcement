@@ -2,7 +2,7 @@
 
 # %%
 
-
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -24,7 +24,7 @@ GOAL = [3, 11]
 # 强化学习参数
 EPSILON = 0.1    # 探索率
 ALPHA = 0.1      # 学习率
-GAMMA = 0.95      # 折现因子（由于是有限步任务，设为1）
+GAMMA = 1      # 折现因子（由于是有限步任务，设为1）
 
 def step(state, action):
     """
@@ -110,9 +110,22 @@ def run_experiment(episodes=500):
         rewards_sarsa.append(sarsa(q_sarsa))
         rewards_q_learning.append(q_learning(q_q_learning))
 
+
+    # 转换为 Series 对象
+    s_sarsa = pd.Series(rewards_sarsa)
+    s_q = pd.Series(rewards_q_learning)
+
+    # 计算滑动平均，window=20 表示每20个点取一次平均
+    # min_periods=1 的作用是即使开头不足20个点也计算平均，避免出现空值
+    smoothed_sarsa = s_sarsa.rolling(window=20, min_periods=1).mean()
+    smoothed_q = s_q.rolling(window=20, min_periods=1).mean()
+
+
     # 绘制平滑后的奖励曲线
-    plt.plot(rewards_sarsa, label='Sarsa')
-    plt.plot(rewards_q_learning, label='Q-Learning')
+    plt.plot(smoothed_sarsa, label='Sarsa')
+    plt.plot(smoothed_q, label='Q-Learning')
+    # plt.plot(rewards_sarsa, label='Sarsa')
+    # plt.plot(rewards_q_learning, label='Q-Learning')
     plt.xlabel('Episodes')
     plt.ylabel('Sum of rewards during episode')
     plt.ylim([-200, 0])
