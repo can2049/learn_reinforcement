@@ -22,7 +22,9 @@ START = [3, 0]
 GOAL = [3, 11]
 
 # 强化学习参数
-EPSILON = 0.1  # 探索率
+# EPSILON = 0.1  # 探索率
+EPSILON_START = 0.5
+EPSILON_MIN = 0.01
 # ALPHA = 0.1      # 学习率
 ALPHA_START = 0.5
 ALPHA_MIN = 0.01
@@ -55,11 +57,11 @@ def step(state, action):
     return next_state, reward
 
 
-def choose_action(state, q_table):
+def choose_action(state, q_table, epsilon):
     """
     Epsilon-greedy 策略选择动作
     """
-    if np.random.binomial(1, EPSILON) == 1:
+    if np.random.binomial(1, epsilon) == 1:
         return np.random.choice(ACTIONS)
     else:
         values = q_table[state[0], state[1], :]
@@ -69,16 +71,16 @@ def choose_action(state, q_table):
         )
 
 
-def sarsa(q_table, alpha):
+def sarsa(q_table, alpha, epsilon):
     """
     Sarsa 算法实现：On-policy
     """
     state = START
-    action = choose_action(state, q_table)
+    action = choose_action(state, q_table, epsilon)
     total_reward = 0
     while state != GOAL:
         next_state, reward = step(state, action)
-        next_action = choose_action(next_state, q_table)
+        next_action = choose_action(next_state, q_table, epsilon)
         total_reward += reward
         # Sarsa 核心更新公式：使用下一步实际执行的动作 next_action
         target = reward + GAMMA * q_table[next_state[0], next_state[1], next_action]
@@ -90,14 +92,14 @@ def sarsa(q_table, alpha):
     return total_reward
 
 
-def q_learning(q_table, alpha):
+def q_learning(q_table, alpha, epsilon):
     """
     Q-learning 算法实现：Off-policy
     """
     state = START
     total_reward = 0
     while state != GOAL:
-        action = choose_action(state, q_table)
+        action = choose_action(state, q_table, epsilon)
         next_state, reward = step(state, action)
         total_reward += reward
         # Q-learning 核心更新公式：使用下一步 Q 值中最大的那个，不考虑实际动作
@@ -122,9 +124,15 @@ def run_experiment(episodes=500):
 
     for i in range(episodes):
         current_alpha = max(ALPHA_MIN, ALPHA_START * (0.9**i))
+        # current_epsilon = EPSILON_START * (0.9**i)
+        current_epsilon = max(EPSILON_MIN, EPSILON_START * (0.9**i))
 
-        rewards_sarsa.append(sarsa(q_sarsa, alpha=current_alpha))
-        rewards_q_learning.append(q_learning(q_q_learning, alpha=current_alpha))
+        rewards_sarsa.append(
+            sarsa(q_sarsa, alpha=current_alpha, epsilon=current_epsilon)
+        )
+        rewards_q_learning.append(
+            q_learning(q_q_learning, alpha=current_alpha, epsilon=current_epsilon)
+        )
 
     # 转换为 Series 对象
     s_sarsa = pd.Series(rewards_sarsa)
@@ -138,11 +146,13 @@ def run_experiment(episodes=500):
     # 绘制平滑后的奖励曲线
     plt.plot(smoothed_sarsa, label="Sarsa")
     plt.plot(smoothed_q, label="Q-Learning")
+
     # plt.plot(rewards_sarsa, label="Sarsa")
     # plt.plot(rewards_q_learning, label="Q-Learning")
+
     plt.xlabel("Episodes")
     plt.ylabel("Sum of rewards during episode")
-    plt.ylim([-200, 0])
+    plt.ylim([-60, -10])
     plt.title("Sarsa vs Q-Learning on Cliff Walking")
     plt.legend()
     plt.show()
