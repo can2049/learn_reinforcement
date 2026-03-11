@@ -21,7 +21,7 @@ class BanditEnvironment:
         return self.q_true[action] + np.random.randn()
 
 
-def run_experiment(k=10, steps=1000, runs=2000):
+def run_experiment(k=10, steps=1000, runs=1000):
     # 初始化统计数据
     rewards_eps = np.zeros(steps)
     rewards_ucb = np.zeros(steps)
