@@ -62,6 +62,7 @@ epsilon = 0.5  # ε 初始值：50% 的概率随机探索
 START_EPSILON_DECAYING = 1  # 从第 1 回合开始衰减 ε
 END_EPSILON_DECAYING = EPISODES // 2  # 到一半回合时 ε 衰减到 0
 epsilon_decay_value = epsilon / (END_EPSILON_DECAYING - START_EPSILON_DECAYING)  # Δε
+print(f"epsilon_decay_value: {epsilon_decay_value:.5f}")
 
 # --- 状态空间离散化 ---
 env = gym.make(ENV_NAME)
@@ -69,9 +70,11 @@ env = gym.make(ENV_NAME)
 # 将每个维度的连续区间均分为 20 个桶（bin）
 # observation_space.high = [0.6, 0.07], observation_space.low = [-1.2, -0.07]
 DISCRETE_OS_SIZE = [20] * len(env.observation_space.high)
+print(f"DISCRETE_OS_SIZE: {DISCRETE_OS_SIZE}")
 
 # 每个桶的宽度: bin_width = (high − low) / num_bins
 discrete_os_win_size = (env.observation_space.high - env.observation_space.low) / DISCRETE_OS_SIZE
+print(f"discrete_os_win_size: {discrete_os_win_size}")
 
 print(f"env.action_space.n: {env.action_space.n}")
 
@@ -79,6 +82,7 @@ print(f"env.action_space.n: {env.action_space.n}")
 # 用 [-2, 0] 之间的随机值初始化，因为 MountainCar 的奖励全为负值（每步 -1），
 # 随机初始化可打破对称性，促进早期探索。
 q_table = np.random.uniform(low=-2, high=0, size=(DISCRETE_OS_SIZE + [env.action_space.n]))
+print(f"q_table shape: {q_table.shape}")
 
 def get_discrete_state(state):
     """将连续状态映射到离散网格索引。
@@ -93,11 +97,17 @@ def get_discrete_state(state):
 ep_rewards = []
 aggr_ep_rewards = {'ep': [], 'avg': [], 'max': [], 'min': []}
 
+once_debug_flag = True
+
 # --- 训练主循环 ---
 for episode in range(EPISODES):
     episode_reward = 0
     raw_state, _ = env.reset()
+    if once_debug_flag:
+        print(f"raw_state: {raw_state}")
     discrete_state = get_discrete_state(raw_state)
+    if once_debug_flag:
+        print(f"discrete_state: {discrete_state}")
     done = False
 
     while not done:
@@ -108,11 +118,19 @@ for episode in range(EPISODES):
             action = np.argmax(q_table[discrete_state])
         else:
             action = np.random.randint(0, env.action_space.n)
+        print(f"action: {action}")
 
         # ---- Step 2: 与环境交互 ----
         new_state_raw, reward, terminated, truncated, _ = env.step(action)
+        if once_debug_flag:
+            print(
+                f"new_state_raw: {new_state_raw} | reward: {reward} | terminated: {terminated} | truncated: {truncated}"
+            )
         done = terminated or truncated
         new_discrete_state = get_discrete_state(new_state_raw)
+        if once_debug_flag:
+            print(f"new_discrete_state: {new_discrete_state}")
+
         episode_reward += reward
 
         # ---- Step 3: Q-Table 更新 ----
@@ -133,6 +151,8 @@ for episode in range(EPISODES):
             q_table[discrete_state + (action,)] = 0
 
         discrete_state = new_discrete_state
+
+        once_debug_flag = False
 
     # ---- ε 线性衰减 ----
     # 在 [START_EPSILON_DECAYING, END_EPSILON_DECAYING] 区间内，
