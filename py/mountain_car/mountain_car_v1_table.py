@@ -118,7 +118,8 @@ for episode in range(EPISODES):
             action = np.argmax(q_table[discrete_state])
         else:
             action = np.random.randint(0, env.action_space.n)
-        print(f"action: {action}")
+        if once_debug_flag:
+            print(f"action: {action}")
 
         # ---- Step 2: 与环境交互 ----
         new_state_raw, reward, terminated, truncated, _ = env.step(action)
