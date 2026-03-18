@@ -147,6 +147,9 @@ for episode in range(EPISODES):
             #   Q(s,a) ← (1−α)·Q(s,a) + α·[R + γ·max_a' Q(s',a')]
             # 其中 TD target = R + γ·max_a' Q(s',a')
             #      TD error  = TD target − Q(s,a)
+            if once_debug_flag:
+                print(f"q_table[new_discrete_state]: {q_table[new_discrete_state]}")
+
             max_future_q = np.max(q_table[new_discrete_state])
             current_q = q_table[discrete_state + (action,)]
             new_q = (1 - LEARNING_RATE) * current_q + LEARNING_RATE * (
