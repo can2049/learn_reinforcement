@@ -73,7 +73,9 @@ DISCRETE_OS_SIZE = [20] * len(env.observation_space.high)
 print(f"DISCRETE_OS_SIZE: {DISCRETE_OS_SIZE}")
 
 # 每个桶的宽度: bin_width = (high − low) / num_bins
-discrete_os_win_size = (env.observation_space.high - env.observation_space.low) / DISCRETE_OS_SIZE
+discrete_os_win_size = (
+    env.observation_space.high - env.observation_space.low
+) / DISCRETE_OS_SIZE
 print(f"discrete_os_win_size: {discrete_os_win_size}")
 
 print(f"env.action_space.n: {env.action_space.n}")
@@ -81,8 +83,13 @@ print(f"env.action_space.n: {env.action_space.n}")
 # 初始化 Q-Table，形状 (20, 20, 3)，即 (position_bins, velocity_bins, actions)
 # 用 [-2, 0] 之间的随机值初始化，因为 MountainCar 的奖励全为负值（每步 -1），
 # 随机初始化可打破对称性，促进早期探索。
-q_table = np.random.uniform(low=-2, high=0, size=(DISCRETE_OS_SIZE + [env.action_space.n]))
+q_table = np.random.uniform(
+    low=-2, high=0, size=(DISCRETE_OS_SIZE + [env.action_space.n])
+)
 print(f"q_table shape: {q_table.shape}")
+
+once_debug_flag = True
+
 
 def get_discrete_state(state):
     """将连续状态映射到离散网格索引。
@@ -93,11 +100,11 @@ def get_discrete_state(state):
     discrete_state = (state - env.observation_space.low) / discrete_os_win_size
     return tuple(discrete_state.astype(int))
 
+
 # 用于记录每个回合的总奖励，便于后续可视化训练曲线
 ep_rewards = []
-aggr_ep_rewards = {'ep': [], 'avg': [], 'max': [], 'min': []}
+aggr_ep_rewards = {"ep": [], "avg": [], "max": [], "min": []}
 
-once_debug_flag = True
 
 # --- 训练主循环 ---
 for episode in range(EPISODES):
@@ -107,9 +114,9 @@ for episode in range(EPISODES):
         print(f"raw_state: {raw_state}")
     discrete_state = get_discrete_state(raw_state)
     if once_debug_flag:
-        print(f"discrete_state: {discrete_state}")
-    done = False
+        print(f"raw_state: {raw_state}  discrete_state: {discrete_state}")
 
+    done = False
     while not done:
         # ---- Step 1: ε-Greedy 动作选择 ----
         # 以概率 (1−ε) 选择贪心动作 argmax_a Q(s, a)（利用）
@@ -142,7 +149,9 @@ for episode in range(EPISODES):
             #      TD error  = TD target − Q(s,a)
             max_future_q = np.max(q_table[new_discrete_state])
             current_q = q_table[discrete_state + (action,)]
-            new_q = (1 - LEARNING_RATE) * current_q + LEARNING_RATE * (reward + DISCOUNT_FACTOR * max_future_q)
+            new_q = (1 - LEARNING_RATE) * current_q + LEARNING_RATE * (
+                reward + DISCOUNT_FACTOR * max_future_q
+            )
             q_table[discrete_state + (action,)] = new_q
 
         elif new_state_raw[0] >= env.unwrapped.goal_position:
@@ -166,25 +175,27 @@ for episode in range(EPISODES):
     # 日志输出：每 SHOW_PROGRESS_EVERY 回合统计近期平均/最大/最小奖励
     if not episode % SHOW_PROGRESS_EVERY:
         avg_reward = sum(ep_rewards[-SHOW_PROGRESS_EVERY:]) / SHOW_PROGRESS_EVERY
-        aggr_ep_rewards['ep'].append(episode)
-        aggr_ep_rewards['avg'].append(avg_reward)
-        aggr_ep_rewards['max'].append(max(ep_rewards[-SHOW_PROGRESS_EVERY:]))
-        aggr_ep_rewards['min'].append(min(ep_rewards[-SHOW_PROGRESS_EVERY:]))
-        print(f"Episode: {episode:>5d} | Avg Reward: {avg_reward:>5.1f} | Epsilon: {epsilon:>4.2f}")
+        aggr_ep_rewards["ep"].append(episode)
+        aggr_ep_rewards["avg"].append(avg_reward)
+        aggr_ep_rewards["max"].append(max(ep_rewards[-SHOW_PROGRESS_EVERY:]))
+        aggr_ep_rewards["min"].append(min(ep_rewards[-SHOW_PROGRESS_EVERY:]))
+        print(
+            f"Episode: {episode:>5d} | Avg Reward: {avg_reward:>5.1f} | Epsilon: {epsilon:>4.2f}"
+        )
 
 env.close()
 
 # --- 训练曲线可视化 ---
 # 观察 avg reward 是否随训练上升（趋向 -110 左右说明已学会快速到达目标）
 plt.figure(figsize=(10, 5))
-plt.plot(aggr_ep_rewards['ep'], aggr_ep_rewards['avg'], label="Average Reward")
-plt.plot(aggr_ep_rewards['ep'], aggr_ep_rewards['max'], label="Max Reward", alpha=0.3)
-plt.plot(aggr_ep_rewards['ep'], aggr_ep_rewards['min'], label="Min Reward", alpha=0.3)
+plt.plot(aggr_ep_rewards["ep"], aggr_ep_rewards["avg"], label="Average Reward")
+plt.plot(aggr_ep_rewards["ep"], aggr_ep_rewards["max"], label="Max Reward", alpha=0.3)
+plt.plot(aggr_ep_rewards["ep"], aggr_ep_rewards["min"], label="Min Reward", alpha=0.3)
 plt.title("Stage 1: Tabular Q-Learning Progress")
 plt.xlabel("Episodes")
 plt.ylabel("Reward (Goal = -140 approx)")
 plt.legend(loc=4)
-plt.grid(True, linestyle='--', alpha=0.6)
+plt.grid(True, linestyle="--", alpha=0.6)
 plt.show()
 
 # %%
