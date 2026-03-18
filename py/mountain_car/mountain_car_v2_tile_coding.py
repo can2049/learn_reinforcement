@@ -14,6 +14,9 @@ TILES_PER_DIM = 8  # Grid size per layer (8x8)
 SHOW_PROGRESS_EVERY = 100  # 每隔多少回合打印一次统计信息
 
 
+once_debug_flag = True
+
+
 class TileCoder:
     def __init__(self, num_tilings, tiles_per_dim):
         self.num_tilings = num_tilings
@@ -35,6 +38,16 @@ class TileCoder:
             for i, j in zip(range(num_tilings), range(num_tilings))
         ]
 
+        if once_debug_flag:
+            print(
+                f"TileCoder initialized with {num_tilings} tilings and {tiles_per_dim} tiles per dimension."
+            )
+            print(f"Total features: {self.total_tiles}")
+            print(
+                f"Position scale: {self.pos_scale:.2f}, Velocity scale: {self.vel_scale:.2f}"
+            )
+            print(f"Offsets: {self.offsets}")
+
     def get_features(self, state):
         pos, vel = state
         active_tiles = []
@@ -53,6 +66,8 @@ class TileCoder:
             )
             active_tiles.append(tile_idx)
 
+        if once_debug_flag:
+            print(f"get_features.  state: {state} | active_tiles: {active_tiles}")
         return active_tiles
 
 
@@ -110,6 +125,8 @@ for ep in range(EPISODES):
         weights[action][features] += ALPHA * error
 
         features, action = next_features, next_action
+
+        once_debug_flag = False
 
     history.append(total_reward)
 
