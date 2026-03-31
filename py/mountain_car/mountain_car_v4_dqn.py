@@ -18,6 +18,13 @@ EPSILON_MAX = 1.0
 EPSILON_MIN = 0.01
 EPSILON_DECAY = 0.995
 TARGET_UPDATE_FREQ = 10  # 每 10 个 Episode 更新一次目标网络
+NUM_EPISODES = 500  # 训练回合数
+PRINT_FREQ = 20  # 每 20 个 Episode 打印一次日志
+HIDDEN_SIZE = 64  # 隐藏层神经元数量
+REWARD_VELOCITY_SCALE = 10  # 速度奖励缩放因子
+REWARD_GOAL_BONUS = 50  # 到达目标的奖励
+GOAL_POSITION = 0.5  # 目标位置阈值
+
 
 # --- 1. 定义 Q 网络结构 ---
 class QNetwork(nn.Module):
@@ -25,11 +32,11 @@ class QNetwork(nn.Module):
         super(QNetwork, self).__init__()
         # 简单的三层全连接网络，ReLU 激活
         self.fc = nn.Sequential(
-            nn.Linear(state_dim, 64),
+            nn.Linear(state_dim, HIDDEN_SIZE),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE),
             nn.ReLU(),
-            nn.Linear(64, action_dim)
+            nn.Linear(HIDDEN_SIZE, action_dim),
         )
 
     def forward(self, x):
@@ -67,7 +74,7 @@ memory = ReplayBuffer(MEMORY_SIZE)
 epsilon = EPSILON_MAX
 history = []
 
-for ep in range(300):
+for ep in range(NUM_EPISODES):
     state, _ = env.reset()
     total_reward = 0
     done = False
@@ -87,9 +94,12 @@ for ep in range(300):
         # --- 奖励塑造 (Reward Shaping) ---
         # 原始奖励每步都是 -1。
         # 这里给一个小 trick：如果位置更高，给一点额外奖励，诱导 Agent 往山上爬。
-        shaped_reward = reward + 10 * abs(next_state[1]) # 奖励速度感
-        if next_state[0] >= 0.5: shaped_reward += 50    # 成功大奖
-        
+        shaped_reward = reward + REWARD_VELOCITY_SCALE * abs(
+            next_state[1]
+        )  # 奖励速度感
+        if next_state[0] >= GOAL_POSITION:
+            shaped_reward += REWARD_GOAL_BONUS  # 成功大奖
+
         memory.push(state, action, shaped_reward, next_state, done)
         state = next_state
         total_reward += reward # 绘图依然记录原始奖励
@@ -126,7 +136,7 @@ for ep in range(300):
         target_net.load_state_dict(policy_net.state_dict())
         
     history.append(total_reward)
-    if ep % 20 == 0:
+    if ep % PRINT_FREQ == 0:
         print(f"Episode {ep}, Reward: {total_reward}, Epsilon: {epsilon:.2f}")
 
 # 绘制结果
