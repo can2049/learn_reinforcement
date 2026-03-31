@@ -18,7 +18,7 @@ EPSILON_MAX = 1.0
 EPSILON_MIN = 0.01
 EPSILON_DECAY = 0.995
 TARGET_UPDATE_FREQ = 10  # 每 10 个 Episode 更新一次目标网络
-NUM_EPISODES = 500  # 训练回合数
+NUM_EPISODES = 800  # 训练回合数
 PRINT_FREQ = 20  # 每 20 个 Episode 打印一次日志
 HIDDEN_SIZE = 64  # 隐藏层神经元数量
 REWARD_VELOCITY_SCALE = 10  # 速度奖励缩放因子
@@ -139,9 +139,26 @@ for ep in range(NUM_EPISODES):
     if ep % PRINT_FREQ == 0:
         print(f"Episode {ep}, Reward: {total_reward}, Epsilon: {epsilon:.2f}")
 
-# 绘制结果
-plt.plot(history)
+# 绘制结果（带平滑曲线）
+def smooth(values, window=20):
+    weights = np.ones(window) / window
+    return np.convolve(values, weights, mode="valid")
+
+
+smoothed = smooth(history)
+
+plt.figure(figsize=(10, 5))
+plt.plot(history, alpha=0.3, color="steelblue", label="Raw")
+plt.plot(
+    range(len(smoothed)),
+    smoothed,
+    color="steelblue",
+    linewidth=2,
+    label=f"Smoothed (window=20)",
+)
 plt.title("DQN Learning Curve (Mountain Car)")
 plt.xlabel("Episode")
 plt.ylabel("Total Reward")
+plt.legend()
+plt.tight_layout()
 plt.show()
